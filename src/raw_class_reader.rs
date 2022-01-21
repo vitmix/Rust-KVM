@@ -2,10 +2,11 @@ use std::io::Read;
 use std::path::Path;
 use std::fs::File;
 use std::io::Cursor;
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
 
 use crate::class_file::ClassFile as ClassFile;
 use crate::constant_pool::ConstantPoolEntry;
+use crate::declarations::{ACC_PUBLIC, ACC_FINAL, ACC_SUPER, ACC_INTERFACE, ACC_ABSTRACT};
 
 pub fn read_as_bytes(file_path: &Path) -> Result<Vec<u8>, std::io::Error> {
     File::open(file_path).and_then(|mut file| {
@@ -31,6 +32,7 @@ pub fn parse_class_header(bytecode: &[u8]) -> Result<ClassFile, std::io::Error> 
         minor_version: byte_rdr.read_u16::<BigEndian>().unwrap(),
         major_version: byte_rdr.read_u16::<BigEndian>().unwrap(),
         constant_pool_count: byte_rdr.read_u16::<BigEndian>().unwrap(),
+        access_flags: 0
     })
 }
 
@@ -45,7 +47,7 @@ pub fn read_raw_java_class_dumb(class_path: &Path) {
     let mut read_idx: usize = 10;
     let mut cp_read_counter: u16 = 0;
 
-    let jclass = match parse_class_header(&bytecode[0..read_idx]) {
+    let mut jclass = match parse_class_header(&bytecode[0..read_idx]) {
         Ok(class) => class,
         _ => panic!("Unable to parse Java`s class header !.."),
     };
@@ -58,5 +60,13 @@ pub fn read_raw_java_class_dumb(class_path: &Path) {
         let was_read = cp_entry.parse_entry(&bytecode[read_idx..]);
         println!("\t#{} = {}", cp_read_counter, cp_entry);
         read_idx += was_read;
+    }
+
+    jclass.access_flags = BigEndian::read_u16(&bytecode[read_idx..]);
+
+    for acc_flag in [ACC_PUBLIC, ACC_FINAL, ACC_SUPER, ACC_INTERFACE, ACC_ABSTRACT] {
+        if jclass.access_flags & acc_flag == acc_flag {
+            println!("{:x} flag is present in access_flags {:x}", acc_flag, jclass.access_flags);
+        }
     }
 }

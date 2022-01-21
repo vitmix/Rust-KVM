@@ -5,6 +5,7 @@ use constant_pool::ConstantPoolEntry;
 mod raw_class_reader;
 mod class_file;
 mod constant_pool;
+mod declarations;
 
 fn main() {
     raw_class_reader::read_raw_java_class_dumb(Path::new("D:/My Java Projects/HelloWorld.class"));
