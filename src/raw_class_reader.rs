@@ -60,4 +60,3 @@ pub fn read_raw_java_class_dumb(class_path: &Path) {
         read_idx += was_read;
     }
 }
- 
