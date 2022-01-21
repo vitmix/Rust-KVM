@@ -56,7 +56,7 @@ pub fn read_raw_java_class_dumb(class_path: &Path) {
         let mut cp_entry = ConstantPoolEntry::from(bytecode[read_idx]);
         read_idx += 1;
         let was_read = cp_entry.parse_entry(&bytecode[read_idx..]);
-        println!("\t#{} = {}", cp_read_counter, cp_entry.name_and_value());
+        println!("\t#{} = {}", cp_read_counter, cp_entry);
         read_idx += was_read;
     }
 }

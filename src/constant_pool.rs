@@ -1,6 +1,7 @@
 use std::{io::Cursor};
 use byteorder::{BigEndian, ReadBytesExt};
 use std::str;
+use std::fmt;
 
 pub enum ConstantPoolEntry {
     Utf8 (String),
@@ -37,25 +38,27 @@ impl From<u8> for ConstantPoolEntry {
     }
 }
 
-impl ConstantPoolEntry {
-    pub fn name_and_value(&self) -> String {
+impl fmt::Display for ConstantPoolEntry {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use ConstantPoolEntry::*;
 
         match self {
-            Class { name_idx: idx } => format!("Class\t#{}", idx),
-            FieldRef { class_idx: idx0, name_and_type_idx: idx1 } => format!("Fieldref\t#{}.#{}", idx0, idx1),
-            MethodRef { class_idx: idx0, name_and_type_idx: idx1 } => format!("Methodref\t#{}.#{}", idx0, idx1),
-            InterfaceMethodRef { class_idx: idx0, name_and_type_idx: idx1 } => format!("InterfaceMethodref\t#{}.#{}", idx0, idx1),
-            String { string_idx: idx } => format!("String\t#{}", idx),
-            Integer (i) => format!("Integer\t{}", i),
-            Float (f) => format!("Float\t{}", f),
-            Long (l) => format!("Long\t{}", l),
-            Double (d) => format!("Double\t{}", d),
-            NameAndType { name_idx: idx0, descriptor_idx: idx1 } => format!("NameAndType\t#{}.#{}", idx0, idx1),
-            Utf8 (s) => format!("Utf8\t{}", s),
+            Class { name_idx: idx } => write!(f, "Class\t#{}", idx),
+            FieldRef { class_idx: idx0, name_and_type_idx: idx1 } => write!(f, "Fieldref\t#{}.#{}", idx0, idx1),
+            MethodRef { class_idx: idx0, name_and_type_idx: idx1 } => write!(f, "Methodref\t#{}.#{}", idx0, idx1),
+            InterfaceMethodRef { class_idx: idx0, name_and_type_idx: idx1 } => write!(f, "InterfaceMethodref\t#{}.#{}", idx0, idx1),
+            String { string_idx: idx } => write!(f, "String\t#{}", idx),
+            Integer (i) => write!(f, "Integer\t{}", i),
+            Float (fl) => write!(f, "Float\t{}", fl),
+            Long (l) => write!(f, "Long\t{}", l),
+            Double (d) => write!(f, "Double\t{}", d),
+            NameAndType { name_idx: idx0, descriptor_idx: idx1 } => write!(f, "NameAndType\t#{}.#{}", idx0, idx1),
+            Utf8 (s) => write!(f, "Utf8\t{}", s),
         }
     }
+}
 
+impl ConstantPoolEntry {
     pub fn parse_entry(&mut self, bytes: &[u8]) -> usize {
         use ConstantPoolEntry::*;
 
