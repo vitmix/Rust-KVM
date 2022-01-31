@@ -5,7 +5,7 @@ use std::io::Cursor;
 use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
 
 use crate::class_file::ClassFile as ClassFile;
-use crate::constant_pool::ConstantPoolEntry;
+use crate::constant_pool::{ConstantPoolEntry, ConstantPool};
 use crate::declarations::{ACC_PUBLIC, ACC_FINAL, ACC_SUPER, ACC_INTERFACE, ACC_ABSTRACT};
 
 pub fn read_as_bytes(file_path: &Path) -> Result<Vec<u8>, std::io::Error> {
@@ -23,19 +23,6 @@ pub fn is_java_class_format(binary: &[u8]) -> bool {
     }
 }
 
-pub fn parse_class_header(bytecode: &[u8]) -> Result<ClassFile, std::io::Error> {
-    assert_eq!(bytecode.len(), 10);
-    let mut byte_rdr = Cursor::new(bytecode);
-    
-    Ok(ClassFile {
-        magic: byte_rdr.read_u32::<BigEndian>().unwrap(),
-        minor_version: byte_rdr.read_u16::<BigEndian>().unwrap(),
-        major_version: byte_rdr.read_u16::<BigEndian>().unwrap(),
-        constant_pool_count: byte_rdr.read_u16::<BigEndian>().unwrap(),
-        access_flags: 0
-    })
-}
-
 pub fn read_raw_java_class_dumb(class_path: &Path) {
     println!("Trying to read Java`s class in bytecode");
     let bytecode = match read_as_bytes(class_path) {
@@ -43,30 +30,15 @@ pub fn read_raw_java_class_dumb(class_path: &Path) {
         _ => panic!("Error reading provided Java`s class: {}", class_path.display()),
     };
     println!("Is provided binary is Java`s class file format ? - {}", is_java_class_format(&bytecode));
-    
-    let mut read_idx: usize = 10;
-    let mut cp_read_counter: u16 = 0;
 
-    let mut jclass = match parse_class_header(&bytecode[0..read_idx]) {
-        Ok(class) => class,
-        _ => panic!("Unable to parse Java`s class header !.."),
-    };
+    let mut jclass = ClassFile::new();
+    let mut byte_rdr = Cursor::new(bytecode);
+    jclass.parse(&mut byte_rdr);
     println!("Parsed:\n{}", jclass);
-
-    while cp_read_counter < jclass.constant_pool_count - 1 {
-        cp_read_counter += 1;
-        let mut cp_entry = ConstantPoolEntry::from(bytecode[read_idx]);
-        read_idx += 1;
-        let was_read = cp_entry.parse_entry(&bytecode[read_idx..]);
-        println!("\t#{} = {}", cp_read_counter, cp_entry);
-        read_idx += was_read;
-    }
-
-    jclass.access_flags = BigEndian::read_u16(&bytecode[read_idx..]);
-
-    for acc_flag in [ACC_PUBLIC, ACC_FINAL, ACC_SUPER, ACC_INTERFACE, ACC_ABSTRACT] {
-        if jclass.access_flags & acc_flag == acc_flag {
-            println!("{:x} flag is present in access_flags {:x}", acc_flag, jclass.access_flags);
-        }
-    }
+    
+    // for acc_flag in [ACC_PUBLIC, ACC_FINAL, ACC_SUPER, ACC_INTERFACE, ACC_ABSTRACT] {
+    //     if jclass.access_flags & acc_flag == acc_flag {
+    //         println!("{:x} flag is present in access_flags {:x}", acc_flag, jclass.access_flags);
+    //     }
+    // }
 }

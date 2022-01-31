@@ -1,11 +1,111 @@
-use std::fmt;
+use std::fmt::{self};
+use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
+use std::io::Cursor;
+
+use crate::constant_pool::{ConstantPoolEntry, ConstantPool};
+use crate::field_info::FieldInfo;
 
 pub struct ClassFile {
     pub magic: u32,
     pub minor_version: u16,
     pub major_version: u16,
-    pub constant_pool_count: u16,
+    pub constant_pool_count: usize,
+    pub cp: ConstantPool,
     pub access_flags: u16,
+    pub this_class: usize,
+    pub super_class: usize,
+    pub super_interfaces_count: usize,
+    pub super_interfaces: Vec<usize>,
+    pub fields_count: usize,
+    pub fields: Vec<FieldInfo>,
+}
+
+impl ClassFile {
+    pub fn new() -> ClassFile {
+        ClassFile {
+            magic: 0,
+            minor_version: 0,
+            major_version: 0,
+            constant_pool_count: 0,
+            cp: vec!(),
+            access_flags: 0,
+            this_class: 0,
+            super_class: 0,
+            super_interfaces_count: 0,
+            super_interfaces: vec!(),
+            fields_count: 0,
+            fields: vec!(),
+        }
+    }
+
+    fn get_class_entry(&self, class_idx: usize) -> Result<&ConstantPoolEntry, &str> {
+        match self.cp[class_idx] {
+            ConstantPoolEntry::Class { name_idx: i } => Ok(&self.cp[i as usize]),
+            _ => Err("Unknown constant pool entry"),
+        }
+    }
+
+    pub fn parse(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        self.parse_class_header(byte_rdr);
+        self.parse_constant_pool(byte_rdr);
+        self.parse_fields(byte_rdr);
+
+    }
+
+    fn parse_class_header(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        self.magic = byte_rdr.read_u32::<BigEndian>().unwrap();
+        self.minor_version = byte_rdr.read_u16::<BigEndian>().unwrap();
+        self.major_version = byte_rdr.read_u16::<BigEndian>().unwrap();
+        self.constant_pool_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        assert!(self.constant_pool_count > 0);
+    }
+
+    fn parse_constant_pool(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        use ConstantPoolEntry::*;
+        
+        self.cp.reserve_exact(self.constant_pool_count);
+        self.cp.push(Integer(0));
+
+        for i in 1..(self.constant_pool_count) {
+            let mut cp_entry = ConstantPoolEntry::from(byte_rdr.read_u8().unwrap());
+            cp_entry.parse_entry(byte_rdr);
+            self.cp.push(cp_entry);
+            println!("\t#{} = {}", i, self.cp[i]);
+        }
+
+        assert_eq!(self.cp.len(), self.constant_pool_count);
+
+        self.access_flags = byte_rdr.read_u16::<BigEndian>().unwrap();
+        self.this_class = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.super_class = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+
+        let class_name = self.get_class_entry(self.this_class).unwrap();
+        println!("\tthis_class: #{} \t//{}", self.this_class, class_name);
+        let super_name = self.get_class_entry(self.super_class).unwrap();
+        println!("\tsuper_class: #{} \t//{}", self.super_class, super_name);
+
+        self.super_interfaces_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+
+        for i in 0..self.super_interfaces_count {
+            self.super_interfaces.push(
+                byte_rdr.read_u16::<BigEndian>().unwrap() as usize
+            );
+        }
+        println!("Super interfaces: {:?}", self.super_interfaces);
+    }
+
+    fn parse_fields(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        self.fields_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.fields.reserve_exact(self.fields_count);
+
+        for _ in 0..self.fields_count {
+            let mut field = FieldInfo::new();
+            field.parse_field(byte_rdr);
+            self.fields.push(field);
+        }
+
+        println!("Fields:\n\t{:?}", self.fields);
+    }
 }
 
 impl fmt::Display for ClassFile {

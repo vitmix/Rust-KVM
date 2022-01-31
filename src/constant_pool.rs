@@ -3,6 +3,8 @@ use byteorder::{BigEndian, ReadBytesExt};
 use std::str;
 use std::fmt;
 
+pub type ConstantPool = Vec<ConstantPoolEntry>;
+
 pub enum ConstantPoolEntry {
     Utf8 (String),
     Integer (i32),
@@ -53,57 +55,46 @@ impl fmt::Display for ConstantPoolEntry {
             Long (l) => write!(f, "Long\t{}", l),
             Double (d) => write!(f, "Double\t{}", d),
             NameAndType { name_idx: idx0, descriptor_idx: idx1 } => write!(f, "NameAndType\t#{}.#{}", idx0, idx1),
-            Utf8 (s) => write!(f, "Utf8\t{}", s),
+            Utf8 (s) => write!(f, "{}", s),
         }
     }
 }
 
 impl ConstantPoolEntry {
-    pub fn parse_entry(&mut self, bytes: &[u8]) -> usize {
+    pub fn parse_entry(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
         use ConstantPoolEntry::*;
 
-        let mut bytes_rdr = Cursor::new(bytes);
         match self {
             Class { name_idx: idx }
             | String { string_idx: idx } => {
-                assert_eq!(bytes.len() >= 2, true);
-                *idx = bytes_rdr.read_u16::<BigEndian>().unwrap();
-                2
+                *idx = byte_rdr.read_u16::<BigEndian>().unwrap();
             },
             FieldRef { class_idx: idx0, name_and_type_idx: idx1 }
             | MethodRef { class_idx: idx0, name_and_type_idx: idx1 }
             | InterfaceMethodRef { class_idx: idx0, name_and_type_idx: idx1 }
             | NameAndType { name_idx: idx0, descriptor_idx: idx1 } => {
-                assert_eq!(bytes.len() >= 4, true);
-                *idx0 = bytes_rdr.read_u16::<BigEndian>().unwrap();
-                *idx1 = bytes_rdr.read_u16::<BigEndian>().unwrap();
-                4
+                *idx0 = byte_rdr.read_u16::<BigEndian>().unwrap();
+                *idx1 = byte_rdr.read_u16::<BigEndian>().unwrap();
             },
             Integer (value) => {
-                assert_eq!(bytes.len() >= 4, true);
-                *value = bytes_rdr.read_i32::<BigEndian>().unwrap();
-                4
+                *value = byte_rdr.read_i32::<BigEndian>().unwrap();
             },
             Float (value) => {
-                assert_eq!(bytes.len() >= 4, true);
-                *value = bytes_rdr.read_f32::<BigEndian>().unwrap();
-                4
+                *value = byte_rdr.read_f32::<BigEndian>().unwrap();
             },
             Long (value) => {
-                assert_eq!(bytes.len() >= 8, true);
-                *value = bytes_rdr.read_i64::<BigEndian>().unwrap();
-                8
+                *value = byte_rdr.read_i64::<BigEndian>().unwrap();
             },
             Double (value) => {
-                assert_eq!(bytes.len() >= 8, true);
-                *value = bytes_rdr.read_f64::<BigEndian>().unwrap();
-                8
+                *value = byte_rdr.read_f64::<BigEndian>().unwrap();
             },
             Utf8 (value) => {
-                assert_eq!(bytes.len() >= 2, true);
-                let length = bytes_rdr.read_u16::<BigEndian>().unwrap() as usize;
-                *value = str::from_utf8(&bytes[2..length + 2]).unwrap().to_owned();
-                2 + length
+                let length = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+                let start = byte_rdr.position() as usize;
+                let end = start + length;
+                let refer = byte_rdr.get_ref();
+                *value = str::from_utf8(&refer[start..end]).unwrap().to_owned();
+                byte_rdr.set_position(end as u64);
             },
             _ => unreachable!("Cannot parse entry of unknown constant pool tag")
         }
