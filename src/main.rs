@@ -7,6 +7,7 @@ mod class_file;
 mod constant_pool;
 mod declarations;
 mod field_info;
+mod method_info;
 mod attributes;
 
 fn main() {

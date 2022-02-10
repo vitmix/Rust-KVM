@@ -1,3 +1,4 @@
+use std::io::Read;
 use std::{io::Cursor};
 use byteorder::{BigEndian, ReadBytesExt};
 use std::str;

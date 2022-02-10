@@ -18,6 +18,8 @@ pub struct ClassFile {
     pub super_interfaces: Vec<usize>,
     pub fields_count: usize,
     pub fields: Vec<FieldInfo>,
+    pub methods_count: usize,
+    //pub methods: Vec<>,
 }
 
 impl ClassFile {
@@ -35,6 +37,7 @@ impl ClassFile {
             super_interfaces: vec!(),
             fields_count: 0,
             fields: vec!(),
+            methods_count: 0,
         }
     }
 
@@ -100,11 +103,16 @@ impl ClassFile {
 
         for _ in 0..self.fields_count {
             let mut field = FieldInfo::new();
-            field.parse_field(byte_rdr);
+            field.parse_field(byte_rdr, &self.cp);
             self.fields.push(field);
         }
 
         println!("Fields:\n\t{:?}", self.fields);
+    }
+
+    fn parse_methods(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        self.methods_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        
     }
 }
 
