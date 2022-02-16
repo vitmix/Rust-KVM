@@ -4,6 +4,7 @@ use std::io::Cursor;
 
 use crate::constant_pool::{ConstantPoolEntry, ConstantPool};
 use crate::field_info::FieldInfo;
+use crate::method_info::MethodInfo;
 
 pub struct ClassFile {
     pub magic: u32,
@@ -14,12 +15,9 @@ pub struct ClassFile {
     pub access_flags: u16,
     pub this_class: usize,
     pub super_class: usize,
-    pub super_interfaces_count: usize,
     pub super_interfaces: Vec<usize>,
-    pub fields_count: usize,
     pub fields: Vec<FieldInfo>,
-    pub methods_count: usize,
-    //pub methods: Vec<>,
+    pub methods: Vec<MethodInfo>,
 }
 
 impl ClassFile {
@@ -33,11 +31,9 @@ impl ClassFile {
             access_flags: 0,
             this_class: 0,
             super_class: 0,
-            super_interfaces_count: 0,
             super_interfaces: vec!(),
-            fields_count: 0,
             fields: vec!(),
-            methods_count: 0,
+            methods: vec!(),
         }
     }
 
@@ -52,7 +48,7 @@ impl ClassFile {
         self.parse_class_header(byte_rdr);
         self.parse_constant_pool(byte_rdr);
         self.parse_fields(byte_rdr);
-
+        self.parse_methods(byte_rdr);
     }
 
     fn parse_class_header(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
@@ -87,9 +83,10 @@ impl ClassFile {
         let super_name = self.get_class_entry(self.super_class).unwrap();
         println!("\tsuper_class: #{} \t//{}", self.super_class, super_name);
 
-        self.super_interfaces_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
-
-        for i in 0..self.super_interfaces_count {
+        let super_interfaces_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.super_interfaces.reserve_exact(super_interfaces_count);
+        
+        for i in 0..super_interfaces_count {
             self.super_interfaces.push(
                 byte_rdr.read_u16::<BigEndian>().unwrap() as usize
             );
@@ -98,10 +95,10 @@ impl ClassFile {
     }
 
     fn parse_fields(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
-        self.fields_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
-        self.fields.reserve_exact(self.fields_count);
+        let fields_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.fields.reserve_exact(fields_count);
 
-        for _ in 0..self.fields_count {
+        for _ in 0..fields_count {
             let mut field = FieldInfo::new();
             field.parse_field(byte_rdr, &self.cp);
             self.fields.push(field);
@@ -111,8 +108,13 @@ impl ClassFile {
     }
 
     fn parse_methods(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
-        self.methods_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
-        
+        let methods_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.methods.reserve_exact(methods_count);
+        println!("Methods count is {}", methods_count);
+        for _ in 0..methods_count {
+            self.methods.push(MethodInfo::new(byte_rdr, &self.cp));
+        }
+        println!("Methods:\n\t{:?}", self.methods);
     }
 }
 
