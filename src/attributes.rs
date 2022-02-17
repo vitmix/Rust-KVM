@@ -15,6 +15,9 @@ pub enum Attributes {
     Exceptions {
         exception_ids: Vec<u16>,
     },
+    SourceFile {
+        sourcefile_idx: usize,
+    },
 }
 
 #[derive(Debug)]
@@ -95,6 +98,13 @@ impl Attributes {
                     exc_ids.push(byte_rdr.read_u16::<BigEndian>().unwrap());
                 }
                 Exceptions { exception_ids: exc_ids }
+            },
+            "SourceFile" => {
+                let attr_len = byte_rdr.read_u32::<BigEndian>().unwrap();
+                assert_eq!(attr_len, 2);
+                SourceFile {
+                    sourcefile_idx: byte_rdr.read_u16::<BigEndian>().unwrap() as usize
+                }
             },
             _ => panic!("Unknown attribute name was provided!"),
         }

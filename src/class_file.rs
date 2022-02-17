@@ -2,6 +2,7 @@ use std::fmt::{self};
 use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
 use std::io::Cursor;
 
+use crate::attributes::Attributes;
 use crate::constant_pool::{ConstantPoolEntry, ConstantPool};
 use crate::field_info::FieldInfo;
 use crate::method_info::MethodInfo;
@@ -18,6 +19,7 @@ pub struct ClassFile {
     pub super_interfaces: Vec<usize>,
     pub fields: Vec<FieldInfo>,
     pub methods: Vec<MethodInfo>,
+    pub attributes: Vec<Attributes>,
 }
 
 impl ClassFile {
@@ -34,6 +36,7 @@ impl ClassFile {
             super_interfaces: vec!(),
             fields: vec!(),
             methods: vec!(),
+            attributes: vec!(),
         }
     }
 
@@ -49,6 +52,7 @@ impl ClassFile {
         self.parse_constant_pool(byte_rdr);
         self.parse_fields(byte_rdr);
         self.parse_methods(byte_rdr);
+        self.parse_attributes(byte_rdr);
     }
 
     fn parse_class_header(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
@@ -115,6 +119,16 @@ impl ClassFile {
             self.methods.push(MethodInfo::new(byte_rdr, &self.cp));
         }
         println!("Methods:\n\t{:?}", self.methods);
+    }
+
+    fn parse_attributes(&mut self, byte_rdr: &mut Cursor<Vec<u8>>) {
+        let attr_count = byte_rdr.read_u16::<BigEndian>().unwrap() as usize;
+        self.attributes.reserve_exact(attr_count);
+        println!("Attribute count is {}", attr_count);
+        for _ in 0..attr_count {
+            self.attributes.push(Attributes::parse_attribute(byte_rdr, &self.cp));
+        }
+        println!("Class attributes:\n\t{:?}", self.attributes);
     }
 }
 
